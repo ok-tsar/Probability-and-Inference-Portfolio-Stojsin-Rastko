@@ -280,7 +280,7 @@ mean(walk_out_money30 - 4000)
 
 This is worse for players than the previous two Martingale strategies. The more turns/opportunities means more chances for long strings of losses. Again it would be very interesting to see where between this and infinity does this strategy become plausible.
 
-```{r simulation20_individual}
+```{r simulation30_individual}
 set.seed(243)
 plot(one_series(B = 4000, W = 8000, L = 70000, M = 1000000), xlab="number of plays", ylab="total money")
 ```
