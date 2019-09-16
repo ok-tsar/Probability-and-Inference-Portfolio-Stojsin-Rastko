@@ -6,4 +6,4 @@
 
 ### [03-discrete-probability-calculations](./03-discrete-probability-calculations/writeup.Rmd)
 
-### [04-world-series-home-field](./04-world-series-home-field/writeup.Rmd)
+### [04-world-series-home-field](./04-world-series-home-series/writeup.Rmd)
