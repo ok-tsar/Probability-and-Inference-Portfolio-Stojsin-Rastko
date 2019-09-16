@@ -1,0 +1,276 @@
+---
+title: "04-world-series-home-field"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+require(dplyr)
+require(data.table)
+library(readxl)
+```
+
+## Probability and Inference --- Deliverable 04
+### World Series Home Field
+### Rastko Stojsin
+
+## Setup
+In the last deliverable I looked at a teams probability of winning a series given the probability of winning a single game and length of series. In the real world the probability of winning a single game is dependent on many outside factors. A big factor, especially in baseball, is home field advantage. Here I will analyse how much of a role home field advantage has in baseball in determining a series outcome. I will only look at 7 game series between two baseball teams.
+
+In a 7 game baseball series the possible schedules are shown in the table below.
+
+ Overall Advantage | Game 1 | Game 2 | Game 3 | Game 4 | Game 5 | Game 6 | Game 7 
+|-|-|-|-|-|-|-|-|
+| $Team A$ | $Stadium A$ | $Stadium A$ | $Stadium B$ | $Stadium B$ | $Stadium B$ | $Stadium A$ | $Stadium A$ |
+| $Team B$ | $Stadium B$ | $Stadium B$ | $Stadium A$ | $Stadium A$ | $Stadium A$ | $Stadium B$ | $Stadium B$ |
+
+Next lets say that playing at home gives a team a 10% (P(winning single head to head game) * 1.1) bump in winning percentage.
+
+## Questions
+
+### Q1
+1. Compute analytically the probability that the Team A win the world series when the sequence of game locations is {Home, Home, Away, Away, Away, Home, Home}. Calculate the probability with and without home field advantage when P1 = 0.55. What is the difference in probabilities?
+
+```{r load_excel, include=FALSE}
+# Get all possible outcomes
+all_possibilities <- read_excel("../all-possible-world-series-outcomes.xlsx")
+# set all posibilitys to a data table
+all_possibilities <- as.data.table(all_possibilities)
+# Home field indicator
+```
+
+```{r, set_variables, include=FALSE}
+# set inital variables
+home_field_indicator <- c(1,1,0,0,0,1,1) #{h, h, a, a, a, h, h}
+prob_single_game_win <- 0.55
+advantage_multiplier <- 1.1 # Set = 1 for no advantage
+prob_home_win <- prob_single_game_win*advantage_multiplier
+prob_away_win <- 1 - (1 - prob_single_game_win)*advantage_multiplier
+```
+
+```{r, calculate_probabilitys, include=FALSE}
+# Calculate the probability of each possible outcome
+all_possibilities[, p := NA_real_] # Initialize new column in apo to store prob
+for(i in 1:nrow(all_possibilities)){
+  prob_series <- rep(1, 7)
+  for(j in 1:7){
+    p_win <- ifelse(home_field_indicator[j], prob_home_win, prob_away_win)
+    prob_series[j] <- case_when(
+        all_possibilities[i,j,with=FALSE] == "W" ~ p_win
+      , all_possibilities[i,j,with=FALSE] == "L" ~ 1 - p_win
+      , TRUE ~ 1
+    )
+  }
+  all_possibilities[i, p := prod(prob_series)] # Data.table syntax
+}
+```
+
+```{r output_with_homefield_adv}
+# Probability of overall World Series outcomes with homefield advantage 
+win_series_with_homefield <- all_possibilities[, sum(p), overall_outcome]
+win_series_with_homefield
+```
+
+We can see that with homefield advantage in play Team A would win the world series with a probability of around 0.6345 given they win 0.55 normally with a 1.1 boost at home and a 1.1 boost for team B at their home and a series schedule of {Home, Home, Away, Away, Away, Home, Home}. Lets see how this compaires to if homefield advantage did not exist.
+
+```{r, calculate_probabilitys_no_homefield_adv, include=FALSE}
+# Calculate the probability of each possible outcome
+all_possibilities[, p := NA_real_] # Initialize new column in apo to store prob
+for(i in 1:nrow(all_possibilities)){
+  prob_series <- rep(1, 7)
+  for(j in 1:7){
+    p_win <- ifelse(home_field_indicator[j], 0.55, 0.55)
+    prob_series[j] <- case_when(
+        all_possibilities[i,j,with=FALSE] == "W" ~ p_win
+      , all_possibilities[i,j,with=FALSE] == "L" ~ 1 - p_win
+      , TRUE ~ 1
+    )
+  }
+  all_possibilities[i, p := prod(prob_series)] # Data.table syntax
+}
+```
+
+```{r output_without_homefield_adv}
+# Probability of overall World Series outcomes without homefield advantage 
+win_series_without_homefield <- all_possibilities[, sum(p), overall_outcome]
+win_series_without_homefield
+# Difference in World Series outcome between with and without homefield advantage
+win_series_with_homefield$V1[1] - win_series_without_homefield$V1[1]
+```
+
+If there is no homefield advantage the probability of team A winning the same series drops by 0.0262 to 0.6082.
+
+### Q2
+
+2. Calculate the same probabilities as the previous question by simulation.
+
+```{r set_vars_&_make_function, include=FALSE}
+# set home field indicators
+hfi1 <- c(1,1,0,0,0,1,1) #{ATL, ATL, NYC, NYC, NYC, ATL, ATL}
+hfi2 <- c(0,0,1,1,1,0,0) #{ATL, ATL, NYC, NYC, NYC, ATL, ATL}
+
+# build function
+world_series_win <- function(hfi, p_win_game, advan_multip){
+  wins <- 0
+  games <- 0
+  for(i in 1:7){
+    if(hfi[i]){
+      p_game <- p_win_game* advan_multip
+    }else{
+      p_game <- (1-p_win_game) * advan_multip
+    }
+    game_outcome <- rbinom(1,1,p_game)
+    wins <- wins + game_outcome
+    games <- games + 1
+    if(wins == 4 | games - wins == 4) break
+  }
+  return(wins>3)
+}
+```
+
+```{r run_sim, include=FALSE}
+set.seed(537)
+sims <- 1000000
+hfi_vec_g1 <- sample("hfi1", sims, replace = TRUE)
+hfi_vec_g2 <- sample("hfi2", sims, replace = TRUE)
+
+num.seq <- sample(1:sims, 1)
+team1.win.g1 <- rep(NA, sims)
+team1.win.g2 <- rep(NA, sims)
+team1.win.g3 <- rep(NA, sims)
+
+for(i in 1:sims){
+  team1.win.g1[i] <- world_series_win(hfi = hfi1, 0.55, 1.1)
+  team1.win.g2[i] <- world_series_win(hfi = hfi2, 0.55, 1.1)
+ }
+```
+
+```{r sim_results}
+# win percentage with homefield advantage and with (h,h,a,a,a,h,h) schedule
+win_p_sim_g1 <- mean(team1.win.g1)
+win_p_sim_g1
+# win percentage with out homefield advantage
+win_p_sim_witoutHA <- mean(team1.win.g2)
+win_p_sim_witoutHA
+```
+
+### Q3
+
+3. What is the absolute and relative error for your simulation in the previous question?
+
+```{r}
+# absolute error win with homefield advantage
+abs_wA <- abs(win_series_with_homefield$V1[1] - win_p_sim_g1)
+abs_wA
+# absolute error win without homefield advantage
+abs_woA <- abs(win_series_without_homefield$V1[1] - win_p_sim_witoutHA)
+abs_woA
+# relative error win with homefield advantage
+rel_wA <- abs_wA/win_series_with_homefield$V1[1]
+rel_wA
+# relative error win without homefield advantage
+rel_woA <- abs_woA/win_series_without_homefield$V1[1]
+rel_woA
+```
+
+### Q Bonus
+Bonus: Does the difference in probabilites (with vs without home field advantage) depend on P team 1 wins?
+```{r, include=FALSE}
+home_field_indicator <- c(1,1,0,0,0,1,1) #{h, h, a, a, a, h, h}
+prob_single_game_win <- 0.70
+advantage_multiplier <- 1.1 # Set = 1 for no advantage
+prob_home_win <- prob_single_game_win*advantage_multiplier
+prob_away_win <- 1 - (1 - prob_single_game_win)*advantage_multiplier
+all_possibilities[, p := NA_real_] # Initialize new column in apo to store prob
+for(i in 1:nrow(all_possibilities)){
+  prob_series <- rep(1, 7)
+  for(j in 1:7){
+    p_win <- ifelse(home_field_indicator[j], prob_home_win, prob_away_win)
+    prob_series[j] <- case_when(
+        all_possibilities[i,j,with=FALSE] == "W" ~ p_win
+      , all_possibilities[i,j,with=FALSE] == "L" ~ 1 - p_win
+      , TRUE ~ 1
+    )
+  }
+  all_possibilities[i, p := prod(prob_series)] # Data.table syntax
+}
+win_series_with_homefield_70 <- all_possibilities[, sum(p), overall_outcome]
+win_series_with_homefield_70
+all_possibilities[, p := NA_real_] # Initialize new column in apo to store prob
+for(i in 1:nrow(all_possibilities)){
+  prob_series <- rep(1, 7)
+  for(j in 1:7){
+    p_win <- ifelse(home_field_indicator[j], 0.70, 0.70)
+    prob_series[j] <- case_when(
+        all_possibilities[i,j,with=FALSE] == "W" ~ p_win
+      , all_possibilities[i,j,with=FALSE] == "L" ~ 1 - p_win
+      , TRUE ~ 1
+    )
+  }
+  all_possibilities[i, p := prod(prob_series)] # Data.table syntax
+}
+# Probability of overall World Series outcomes without homefield advantage 
+win_series_without_homefield_70 <- all_possibilities[, sum(p), overall_outcome]
+win_series_without_homefield_70
+```
+```{r}
+# difference of homefield advantage with team 1 winning 0.55
+win_series_with_homefield$V1[1] - win_series_without_homefield$V1[1]
+# difference of homefield advantage with team 1 winning 0.70
+win_series_with_homefield_70$V1[1] - win_series_without_homefield_70$V1[1]
+```
+
+Yes it does! The importance of homefield advantage rises as the probability of team 1 winning an individual game goes up. This makes logical sence as well, as homefield advantage isnt a set amount (ie raises probability by 0.05), it is in fact a ratio based on the individual game win percentage. It raises the individual win percentage by 10%, and 10% of x>0.55 is larger than 10% of 0.55 and 10% of x<0.55 is smaller!
+
+### Q Bonus
+
+Bonus: Does the difference in probabilites (with vs without home field advantage) depend on the advantage factor? (The advantage factor in PH and PA is the 1.1 multiplier that results in a 10% increase for the home team.)
+
+```{r , include=FALSE}
+home_field_indicator <- c(1,1,0,0,0,1,1) #{h, h, a, a, a, h, h}
+prob_single_game_win <- 0.55
+advantage_multiplier <- 1.7 # Set = 1 for no advantage
+prob_home_win <- prob_single_game_win*advantage_multiplier
+prob_away_win <- 1 - (1 - prob_single_game_win)*advantage_multiplier
+all_possibilities[, p := NA_real_] # Initialize new column in apo to store prob
+for(i in 1:nrow(all_possibilities)){
+  prob_series <- rep(1, 7)
+  for(j in 1:7){
+    p_win <- ifelse(home_field_indicator[j], prob_home_win, prob_away_win)
+    prob_series[j] <- case_when(
+        all_possibilities[i,j,with=FALSE] == "W" ~ p_win
+      , all_possibilities[i,j,with=FALSE] == "L" ~ 1 - p_win
+      , TRUE ~ 1
+    )
+  }
+  all_possibilities[i, p := prod(prob_series)] # Data.table syntax
+}
+win_series_with_homefield_1.7 <- all_possibilities[, sum(p), overall_outcome]
+win_series_with_homefield_1.7
+all_possibilities[, p := NA_real_] # Initialize new column in apo to store prob
+for(i in 1:nrow(all_possibilities)){
+  prob_series <- rep(1, 7)
+  for(j in 1:7){
+    p_win <- ifelse(home_field_indicator[j], 0.55, 0.55)
+    prob_series[j] <- case_when(
+        all_possibilities[i,j,with=FALSE] == "W" ~ p_win
+      , all_possibilities[i,j,with=FALSE] == "L" ~ 1 - p_win
+      , TRUE ~ 1
+    )
+  }
+  all_possibilities[i, p := prod(prob_series)] # Data.table syntax
+}
+# Probability of overall World Series outcomes without homefield advantage 
+win_series_without_homefield_1.7 <- all_possibilities[, sum(p), overall_outcome]
+win_series_without_homefield_1.7
+```
+
+```{r}
+# difference of homefield advantage with team 1 winning 0.55 and a homefield advantage of 10%
+win_series_with_homefield$V1[1] - win_series_without_homefield$V1[1]
+# difference of homefield advantage with team 1 winning 0.55 and a homefield advantage of 70%
+win_series_with_homefield_1.7$V1[1] - win_series_without_homefield_1.7$V1[1]
+```
+
+Yes it does! The difference in probabilities (with/without homefield advantage) is heavily reliant on the level of advantage. The higher advantage level the higher the difference between advantage and no advantage.
+
