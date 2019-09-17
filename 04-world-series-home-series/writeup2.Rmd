@@ -1,0 +1,223 @@
+---
+title: "04-world-series-home-field"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+require(dplyr)
+require(data.table)
+library(readxl)
+library(ggplot2)
+```
+
+## Probability and Inference --- Deliverable 04
+### World Series Home Field
+### Rastko Stojsin
+
+## Setup
+In the last deliverable I looked at a teams probability of winning a series given the probability of winning a single game and length of series. In the real world the probability of winning a single game is dependent on many outside factors. A big factor, especially in baseball, is home field advantage. Here I will analyse how much of a role home field advantage has in baseball in determining a series outcome. I will only look at 7 game series between two baseball teams.
+
+In a 7 game baseball series the possible schedules are shown in the table below.
+
+ Overall Advantage | Game 1 | Game 2 | Game 3 | Game 4 | Game 5 | Game 6 | Game 7 
+|-|-|-|-|-|-|-|-|
+| $Team A$ | $Stadium A$ | $Stadium A$ | $Stadium B$ | $Stadium B$ | $Stadium B$ | $Stadium A$ | $Stadium A$ |
+| $Team B$ | $Stadium B$ | $Stadium B$ | $Stadium A$ | $Stadium A$ | $Stadium A$ | $Stadium B$ | $Stadium B$ |
+
+Next lets say that playing at home gives a team a 10% (P(winning single head to head game) * 1.1) bump in winning percentage.
+
+
+## Questions
+
+### Q1
+1. Compute analytically the probability that the Team A win the world series when the sequence of game locations is {Home, Home, Away, Away, Away, Home, Home}. Calculate the probability with and without home field advantage when P1 = 0.55. What is the difference in probabilities?
+
+```{r load_excel, include=FALSE}
+# Get all possible outcomes
+all_possibilities <-
+  read_excel("../all-possible-world-series-outcomes.xlsx")
+# set all posibilitys to a data table
+all_possibilities <- as.data.table(all_possibilities)
+```
+
+```{r, set_variables, include=FALSE}
+# set inital variables
+home_field_indicator <- c(1, 1, 0, 0, 0, 1, 1) #{h, h, a, a, a, h, h}
+away_field_indicator <- c(0, 0, 1, 1, 1, 0, 0)
+no_field_indicator <- c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
+prob_single_game_win <- 0.55
+advantage_multiplier <- 1.1 # Set = 1 for no advantage
+```
+
+```{r analytical_function_setup, include=FALSE}
+calc_analytical_prob <- function(apo, pb, adv) {
+  prob_home_win <- pb * adv
+  prob_away_win <- 1 - (1 - pb) * adv
+  all_possibilities[, p := NA_real_]
+  for (i in 1:nrow(all_possibilities)) {
+    prob_game <- rep(1, 7)
+    for (j in 1:7) {
+      p_win <- ifelse(home_field_indicator[j], prob_home_win, prob_away_win)
+      prob_game[j] <-
+        case_when(all_possibilities[i, j, with = FALSE] == "W" ~ p_win,
+                  all_possibilities[i, j, with = FALSE] == "L" ~ 1 - p_win,
+                  TRUE ~ 1)
+    }
+    all_possibilities[i, p := prod(prob_game)] # Data.table syntax
+  }
+  return(all_possibilities[, sum(p), overall_outcome])
+}
+```
+
+```{r analyical_answers}
+# Calculating probability of world series outcome with team a win probability of 0.55 and a home field advantage of 10%
+calc_analytical_prob(all_possibilities, 0.55, 1.1)
+# Calculating probability of world series outcome with team a win probability of 0.55 and no home field advantage
+calc_analytical_prob(all_possibilities, 0.55, 1)
+```
+ 
+We can see that with homefield advantage in play Team A would win the world series with a probability of around 0.6345 given they win 0.55 normally with a 1.1 boost at home and a 1.1 boost for team B at their home and a series schedule of {Home, Home, Away, Away, Away, Home, Home}. We can also see that with the same schedule and relative team strength, team A would win the world series with a probability of 0.6083 if there is no home field advantage (home field advantage = 1.0).
+
+```{r homfield_advantage_analytical}
+# difference winning with homefield advantage and no homefield advantage
+calc_analytical_prob(all_possibilities, 0.55, 1.1)[[2]][1] - calc_analytical_prob(all_possibilities, 0.55, 1.0)[[2]][1]
+```
+The difference between winning the world series with homefield advantage with a team that wins 0.55 and has the scedule of {Home, Home, Away, Away, Away, Home, Home} and one without homefield advantage is 0.0262.
+
+### Q2
+
+2. Calculate the same probabilities as the previous question by simulation.
+
+```{r simulation_function_setup, include = FALSE}
+# function to run one single iteration of simulation
+calc_simulation_prob <- function(hfi, pb, adv){
+  wins <- 0
+  games <- 0
+  for(i in 1:7){
+    if(hfi[i] == 1){
+      p_game <- pb* adv
+    }
+    else{
+      p_game <- 1- (1-pb) * adv
+    }
+    game_outcome <- rbinom(1,1,p_game)
+    wins <- wins + game_outcome
+    games <- games + 1
+    if(wins == 4 | games - wins == 4) break
+  }
+  return(wins>3)
+}
+
+# function to chose how many simulations to run and return win percentage
+calc_sim_output <- function(simulations=100000, hfi, pb, adv){
+  t1_wins <- rep(NA, simulations)
+  for (i in 1:simulations) {
+    t1_wins[i] <- calc_simulation_prob(hfi,pb,adv)
+  }
+  return(mean(t1_wins))
+}
+```
+
+```{r simulation_answers}
+set.seed(544)
+# Simulating 100000 events of starting at home with a winning percentage of 0.55 and a homefield advantage of 10%
+calc_sim_output(100000,home_field_indicator, 0.55, 1.1)
+# Simulating 100000 events of starting at home with a winning percentage of 0.55 and absolutly no home field advantage
+set.seed(544)
+calc_sim_output(100000,home_field_indicator, 0.55, 1.0)
+```
+
+```{r simulation_homediff, include = FALSE}
+set.seed(544)
+calc_sim_output(100000,home_field_indicator, 0.55, 1.1)- calc_sim_output(100000,home_field_indicator, 0.55, 1.0)
+```
+
+Team A in these 100000 simulations wins the series with a probability of 0.6348 when a 10% home field advantage is taken into account. This is 0.0272 higher than the 0.6090 probability when no home field advantage exists. These numbers are also very close to the actual probabilities found analytically. Lets see exactly how close!
+
+### Q3
+
+3. What is the absolute and relative error for your simulation in the previous question?
+
+```{r simulation_abs_error}
+# absolute error of simulated home advantage result
+set.seed(544)
+abs_err_wh <- abs(calc_sim_output(100000,home_field_indicator, 0.55, 1.1)- calc_analytical_prob(all_possibilities, 0.55, 1.1)[[2]][1])
+abs_err_wh
+# absolute error of simulated no home advantage result
+set.seed(544)
+abs_err_woh <- abs(calc_sim_output(100000,home_field_indicator, 0.55, 1.0)- calc_analytical_prob(all_possibilities, 0.55, 1.0)[[2]][1])
+abs_err_woh
+```
+
+The absolute errors of with home field advantage and without are 0.0003 and 0.0007 respectivly.
+
+```{r simulation_rel_error}
+# relative error of simulated home advantage result
+set.seed(544)
+rel_err_wh <-
+  abs_err_wh / (calc_analytical_prob(all_possibilities, 0.55, 1.1)[[2]][1])
+rel_err_wh
+# realtive error of simulated no home advantage result
+set.seed(544)
+rel_err_woh <-
+  abs_err_woh / (calc_analytical_prob(all_possibilities, 0.55, 1.0)[[2]][1])
+rel_err_woh
+```
+
+
+The relative errors of with home field advantage and without are 0.0004 and 0.0012 respectivly.
+
+### Q Bonus
+
+Bonus: Does the difference in probabilites (with vs without home field advantage) depend on the probability that P team 1 wins any individual game?
+
+```{r, include = FALSE}
+team_strength_grid <- expand.grid(
+  pb = c(seq(0, 1.0, 0.01))
+  ,
+  p_win_wh = NA_real_
+  ,
+  p_win_woh = NA_real_
+  ,
+  diff = NA_real_
+)
+for (i in 1:nrow(team_strength_grid)) {
+  team_strength_grid[i, c("p_win_wh")] <-
+    calc_analytical_prob(all_possibilities, team_strength_grid[i, "pb"], 1.1)[[2]][1]
+  team_strength_grid[i, c("p_win_woh")] <-
+    calc_analytical_prob(all_possibilities, team_strength_grid[i, "pb"], 1.0)[[2]][1]
+  team_strength_grid[i, c("diff")] <-
+    team_strength_grid[i, c("p_win_wh")] - team_strength_grid[i, c("p_win_woh")]
+}
+team_strength_grid
+```
+
+```{r}
+ggplot(team_strength_grid, aes(x = pb, y = diff)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Difference between homefield advantage and its non-existance", subtitle = "for variying levels of individual game win percentage") +
+  xlab("Single game win percentage") +
+  ylab(
+    "Difference between winning world series taking \ninto account homefield advantage\n and ignorning homefield advantage"
+  )
+```
+
+The difference in probabilities of winning world series (with and without homefield advantage) is in fact dependent on the probability of winning a single game. Interestingly enough your team does not have to be better than the other team for home advantage to start being better than not. This is because if your team plays first in the series (h, h, a, a, a, h, h) you could potencially have one more home game than the opponent at max games. If your team wins 0.44 of individual games, homefield advantage in a series where it helps home team by 10% is better than there being no homefield advantage. Also interesting is that the difference peaks at around 0.65 individual winning probability.
+
+```{r, include = FALSE}
+advantage_factor_grid <- expand.grid(
+  adv = c(seq(1, 2, 0.01)),
+  pb = c(0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95),
+  p_win_wh = NA_real_
+)
+for (i in 1:nrow(advantage_factor_grid)) {
+  advantage_factor_grid[i, c("p_win_wh")] <-
+    if(calc_analytical_prob(all_possibilities, advantage_factor_grid[i, c("pb")], advantage_factor_grid[i, c("adv")])[[2]][1] > 1){1}else{calc_analytical_prob(all_possibilities, advantage_factor_grid[i, c("pb")], advantage_factor_grid[i, c("adv")])[[2]][1]}
+}
+```
+
+
+
+
