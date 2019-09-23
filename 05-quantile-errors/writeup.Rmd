@@ -1,0 +1,76 @@
+---
+title: "05-quantile-errors"
+output: html_document
+---
+
+## Data Science 5620 --- Deliverable 05
+### Quantile Error
+### Rastko Stojsin
+
+Was out of town all weekend, will finish deliverable this week! sorry 
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+```
+
+
+```{r}
+sample_grid <- expand.grid(
+    N = (1:5000)
+  , samples = NA_real_
+  )
+sample_grid[2] <- rnorm(5000,0,1)
+```
+
+```{r}
+rand_sample_grid <- expand.grid(
+     N = (1:200)
+  , min = NA_real_
+  , "0.025" = NA_integer_
+  , first_quart = NA_real_
+  , med = NA_real_
+  , third_quart = NA_real_
+  , "0.975" = NA_real_
+  , max = NA_real_ 
+  , length = NA_real_
+  , length_percentile = NA_real_
+)
+```
+
+```{r}
+calc_summary <- function(i) {
+  set.seed(i)
+  df <- randomRows(sample_grid,200)
+  min <- quantile(df$samples, 0.00)
+  fp <- quantile(df$samples, 0.025)
+  first_quart <- quantile(df$samples, 0.25)
+  med <- quantile(df$samples, 0.5)
+  third_quart <- quantile(df$samples, 0.75)
+  lp <- quantile(df$samples, 0.975)
+  max <- quantile(df$samples, 1)
+  c(min, fp, first_quart, med, third_quart, lp, max)
+}
+```
+
+```{r}
+randomRows = function(df,n){
+   return(df[sample(nrow(df),n),])
+}
+```
+
+```{r}
+for(i in 1:nrow(rand_sample_grid)){
+  rand_sample_grid[i,c("min","0.025", "first_quart", "med", "third_quart", "0.975", "max")] <- calc_summary(i)
+}
+rand_sample_grid <- rand_sample_grid %>% 
+  mutate("length" = rand_sample_grid$`0.975` - rand_sample_grid$`0.025`) 
+```
+
+
+```{r}
+ggplot(rand_sample_grid, aes(length)) +
+  geom_histogram(binwidth = 0.03)
+```
+
+
