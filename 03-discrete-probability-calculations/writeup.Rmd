@@ -1,6 +1,8 @@
 ---
 title: "discrete probability calculations"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 ## Data Science 5620 --- Deliverable 03
 ### Probability Calculations
