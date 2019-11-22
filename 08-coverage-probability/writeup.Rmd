@@ -1,0 +1,113 @@
+---
+title: "writeup"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## Data Science 5620 --- Deliverable 08
+### Coverge Probability
+### Rastko Stojsin
+====================
+
+Coverage probability is an important operating characteristic of methods
+for constructing interval estimates, particularly confidence intervals.
+
+**Definition:** For the purposes of this deliverable, define the 95%
+confidence interval of the mean to be the middle 95% of sampling
+distribution of the mean. Similarly, the 95% confidence interval of the
+median, standard deviation, etc. is the middle 95% of the respective
+sampling distribution.
+
+**Definition:** For the purposes of this deliverable, define the
+coverage probability as the long run proportion of intervals that
+capture the population parameter of interest. Conceptualy, one can
+calculate the coverage probability with the following steps
+
+1.  generate a sample of size *N* from a known distribution
+2.  construct a confidence interval
+3.  determine if the confidence captures the population parameter
+4.  Repeat steps (1) - (3) many times. Estimate the coverage probability
+    as the proportion of samples for which the confidence interval
+    captured the population parameter.
+
+Suggested steps
+---------------
+
+```{r cache=TRUE}
+# set sample, pop, and conf int params
+sample.size = 201
+pop.mean = 0
+pop.sd = 1
+conf.int = 0.95
+# set sim params
+sims.sampledist <- 2000
+sims.evaluation <- 5000
+# reset counters
+captured.medi <- 0 
+pop.medi <- 0
+cis <- array(NA, c(sims.evaluation, 2))
+  
+# begin outer look to evaluate simulations
+for (i in 1:sims.evaluation) {
+  # find rnorm from pop and sample size
+  data <- rnorm(n=sample.size, mean= pop.mean, sd = pop.sd)
+  xbar <- mean(data)
+  s <- sd(data)
+  medi.star <- rep(NA, sims.sampledist)
+  
+  # inner loop
+  for (j in 1:sims.sampledist) {
+    data.star = rnorm(sample.size, xbar, s)
+    medi.star[j] <- median(data.star)
+  }
+  
+  ci.medi <- quantile(medi.star, c((1-conf.int)/2,1-(1-conf.int)/2))
+  cis[i, ] <- ci.medi
+  
+  check.medi <- (ci.medi[1] <= pop.medi) & (pop.medi <=ci.medi[2])
+  captured.medi <- captured.medi + check.medi
+}
+final <- mean(captured.medi)/sims.evaluation
+final
+```
+
+
+**Step:** Generate a single sample from a standard normal distribution
+of size *N* = 201. Explain to the reader how you use MLE to estimate the
+distribution.
+
+Used MLE to take the mean and standard deviation of the 201 samples. We can do this because the samples are random on a normal distribution.
+
+
+**Step:** Show the reader how you approximate the sampling distribution
+of the median, conditional on the estimate of the distribution in the
+previous step.
+
+we use the samples' means generated in previous step to determine median to determine the approximate sampling distribution.
+
+
+**Step:** Describe how you calculate a 95% confidence interval from the
+approximated sampling distribution.
+
+Using the stored approximated sampeling distributions and and find the middle 95% (from 2.5% to 97.5%).
+
+
+**Step:** Explain the concept of coverage probability. Explain your code
+for calculating the coverage probability.
+
+Next we check how many of the confidence intervals at 95% percent contain the true population mean (0). We check that the bottom 2.5% interval is less than the population mean and that the top 97.5% interval is greater than zero. If so the spread covered - if not it hasen't covered.
+
+
+**Step:** Perform the simulation and report the results.
+
+We do the steps above many times (5000) to generate many coverages - we then divide the ones that covered by the total number of sims. This will give us the proportion of simulations whose confidence interval covered the population mean. In one run I had 4925 of the 5000 simulations cover - meaning we have a coverage probability of 98.5%!
+
+
+**Step:** Describe how you might change the simulation to learn more
+about the operating characteristics of your chosen method for
+constructing the 95% confidence interval.
+
+We could make the population standard deviation tighter to see if hitting the cover becomes easier. We could also try to look at not the middle 95% around the median - but the tightest possible 95% confidence interval in each simulation. This should be centered around the median as we used a normal distribution but it will be different simulation to simulation.
+
+
