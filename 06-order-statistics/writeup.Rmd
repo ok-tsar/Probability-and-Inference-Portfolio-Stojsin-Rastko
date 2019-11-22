@@ -1,6 +1,8 @@
 ---
 title: "writeup"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ## Probability and Inference --- Deliverable 06
@@ -26,7 +28,6 @@ In this assignment, I will answer a series of questions related to the variation
 
 ```{r dorder_function}
 dorder <- function(x){
-# Slide 50 of transformations & order-statistics  
   100*
     choose(200, 100)*
     pnorm(x)^(100-1)*
@@ -34,23 +35,26 @@ dorder <- function(x){
     dnorm(x)
 }
 # median of standard normal distribution
-plot(seq(-0.5,0.5, by=0.0001), dorder(seq(-0.5,0.5, by=0.0001)), type = "l")
+plot(seq(-0.5,0.5, by=0.0001), dorder(seq(-0.5,0.5, by=0.0001)), type = "l", xlab = "medians", ylab = "density") 
 ```
+
+This graph shows us the density function for the median of a standard normal distribution.
+
 
 ### Q2
 #### Write an R function that is the probability function for the median in this sample. Use the order statistic formula discussed in class. Generate a plot of the function.
 
-```{r}
+```{r porder_setup}
 porder <- function(x){
-# Slide 54 of transformations & order-statistics  
   pbinom(100-1, 200, pnorm(x), lower.tail = FALSE)
 }
 ```
 
+
 ### Q3
 #### Write an R function that is the quantile function for the median in this sample. (You have several options for how to write this function.) Generate a plot of the function.
 
-```{r}
+```{r qorder_setup}
 qorder <- function(p){
   out <- p
   for(i in seq_along(p)){
@@ -63,69 +67,81 @@ qorder <- function(p){
 ### Q4
 #### Simulate the sampling distribution for the median as you did in the previous deliverable. Create a plot of the empirical CDF (ECDF). Overlay the plot of the ECDF with a plot of the CDF.
 
-```{r}
+
+```{r graph_porder}
 N <- 200
 M <- 5000
 out <- array(rnorm(M*N), c(M,N))
 meds <- apply(out,1,median)
 e1 <- ecdf(meds)
 
-svg("./assets/median-cdf.svg", width = 5, height = 3)
-plot(e1, xlab = "Medians", main = "") 
-curve(porder, add = TRUE, col = "blue", lwd = 3)
-legend("topleft", c("ECDF","CDF"), lwd = 3, col = c("black","blue"), bty = "n")
-dev.off()
-
-
 plot(e1, xlab = "Medians", main = "") 
 curve(porder, add = TRUE, col = "blue", lwd = 3)
 legend("topleft", c("ECDF","CDF"), lwd = 3, col = c("black","blue"), bty = "n")
 ```
 
+The black line is the empirical CDF calculation from the distribution of the medians. The CDF is mathmatically determined and is in blue. As we can see we can get the CDF curve quite well empirically.
+
+```{r save_porder_graph, include=FALSE}
+svg("./assets/median-cdf.svg", width = 5, height = 3)
+plot(e1, xlab = "Medians", main = "") 
+curve(porder, add = TRUE, col = "blue", lwd = 3)
+legend("topleft", c("ECDF","CDF"), lwd = 3, col = c("black","blue"), bty = "n")
+dev.off()
+```
+
+
 ### Q5
 #### Using the simulated sampling distribution from the previous question, create a histogram (on the density scale). Overlay the histogram with a plot of the density function.
 
-```{r}
+```{r graph_dorder}
+hist(meds, xlab = "Medians", main = "", breaks = 100, freq = FALSE)
+curve(dorder, add = TRUE, col = "blue", lwd = 3)
+legend("topleft", c("epdf","pdf"), lwd = 3, col = c("black","blue"), bty = "n")
+```
+
+The bars indicate our simulated medians histogram. This is ploted against the actual mathmetically determined PDF line. Again the simulated medians histogram lines up pretty well with where it is supposed to be mathmatically.
+
+```{r save_dorder_graph, include=FALSE}
 svg("./assets/median-pdf.svg", width = 5, height = 3)
 hist(meds, xlab = "Medians", main = "", breaks = 100, freq = FALSE)
 curve(dorder, add = TRUE, col = "blue", lwd = 3)
 legend("topleft", c("epdf","pdf"), lwd = 3, col = c("black","blue"), bty = "n")
 box()
 dev.off()
-
-hist(meds, xlab = "Medians", main = "", breaks = 100, freq = FALSE)
-curve(dorder, add = TRUE, col = "blue", lwd = 3)
-legend("topleft", c("epdf","pdf"), lwd = 3, col = c("black","blue"), bty = "n")
 ```
-
 
 ### Q6
 #### One very common way to compare a random sample to a theoretical candidate distribution is the QQ plot. It is created by ploting quantiles of the theoretical distribution on the x-axis and empirical quantiles from the sample on the y-axis.
 #### If sample and theoretical quantiles come from the same distribution, then the plotted points will fall along the line y=x, approximately.
 #### For the assigment, generate a QQ plot for the simulated data of the median relative to the known sampling distribution of the median.
 
-```{r}
+```{r QQ_plot}
+set.seed(9123)
 p <- ppoints(200)
 x <- qorder(p)
 y <- quantile(meds, probs = p)
-
-svg("./assets/median-qq.svg", width = 5, height = 3)
-plot(x,y, asp = 1, xlab = "Theoretical quantile", ylab = "Sample quantile")
-abline(0,1)
-dev.off()
 
 plot(x,y, asp = 1, xlab = "Theoretical quantile", ylab = "Sample quantile")
 abline(0,1)
 ```
 
-Does the simulated data agree with the theoretical sampling distribution?
+The simulated medians line up to the sampling distribution of the mean which indicates that we choose the correct underlying distribution.
+
+```{r save_QQ_plot, include=FALSE}
+svg("./assets/median-qq.svg", width = 5, height = 3)
+plot(x,y, asp = 1, xlab = "Theoretical quantile", ylab = "Sample quantile")
+abline(0,1)
+dev.off()
+```
+
 
 ### Q7
 #### Modify the dorder, porder, and qorder functions so that the functions take a new parameter k (for the kt**h order statistic) so that the functions will work for any order statistic and not just the median.
 
-```{r}
+```{r kth_order_functions}
+# dorder with k
 dorder <- function(x, k){
-# Slide 50 of transformations & order-statistics  
   k*
     choose(200, k)*
     pnorm(x)^(k-1)*
@@ -133,11 +149,12 @@ dorder <- function(x, k){
     dnorm(x)
 }
 
+# porder with k
 porder <- function(x, k){
-# Slide 54 of transformations & order-statistics  
   pbinom(k-1, 200, pnorm(x), lower.tail = FALSE)
 }
 
+# qorder with k
 qorder <- function(p, k){
   out <- p
   for(i in seq_along(p)){
@@ -150,13 +167,11 @@ qorder <- function(p, k){
 ### Q8
 #### Modify the dorder, porder, and qorder functions so that the functions take new parameters dist and ... so that the functions will work for any continuous distribution that has d and p functions defined in R.
 
-```{r}
+```{r kth_order_any_dist_functions}
+# dorder with k and dist type
 dorder <- function(x, k, n, dist = "norm", ...){
-  
   pf <- get(paste0("p", dist))
   df <- get(paste0("d", dist))
-
-# Slide 50 of transformations & order-statistics  
   k*
     choose(n, k)*
     pf(x, ...)^(k-1)*
@@ -164,13 +179,13 @@ dorder <- function(x, k, n, dist = "norm", ...){
     df(x, ...)
 }
 
+# porder with k and dist type
 porder <- function(x, k, n, dist = "norm", ...){
   pf <- get(paste0("p", dist))
-
-# Slide 54 of transformations & order-statistics  
   pbinom(k-1, n, pf(x, ...), lower.tail = FALSE)
 }
 
+# qorder with k and dist type
 qorder <- function(p, k, n, dist = "norm", ...){
   out <- p
   for(i in seq_along(p)){
@@ -183,7 +198,8 @@ qorder <- function(p, k, n, dist = "norm", ...){
 ### Q9
 #### Generate the QQ plot for simulated data from the sampling distribution of the sample max and the theoretical largest order statistic distribution.
 
-```{r}
+```{r QQ_samp_max}
+set.seed(810)
 N <- 200
 M <- 5000
 out <- array(rnorm(M*N), c(M,N))
@@ -193,28 +209,43 @@ p <- ppoints(200)
 x <- qorder(p, 200, 200)
 y <- quantile(maxs, probs = p)
 
-svg("./assets/max-qq.svg", width = 5, height = 3)
-plot(x,y, asp = 1, xlab = "Theoretical quantile", ylab = "Sample quantile")
-abline(0,1)
-dev.off()
-
 plot(x,y, asp = 1, xlab = "Theoretical quantile", ylab = "Sample quantile")
 abline(0,1)
 ```
 
+The simulated maxs line up to the sampling distribution of the maximum order statistic which indicates that we choose the correct underlying distribution. Albeit this one is a little bit worse fit than the theoretical vs sample mean - this might be because there is little data at ends of distribution leading to higher variance.
+
+```{r QQ_samp_max_save, include=FALSE}
+svg("./assets/max-qq.svg", width = 5, height = 3)
+plot(x,y, asp = 1, xlab = "Theoretical quantile", ylab = "Sample quantile")
+abline(0,1)
+dev.off()
+```
+
+
 ### Q10
 #### Use the newly modified functions to plot the probability and density functions for the sample min (N=200).
 
-```{r}
+```{r prob_dens_graph}
+curve(porder(x, 1, 200), -5,0, ylab = "Probability", xlab = "min", lwd = 3)
+curve(dorder(x, 1, 200), -5,0, ylab = "Density", xlab = "min", lwd = 3)
+```
+
+At 200 samples the minimum settles at around -2.8. If we increase N the minimum should slide to the left (more negative) because there are more oprotunities to get values at the extreme negative tail. Lets test this at 20000 samples below.
+
+```{r prob_dens_graph_2}
+curve(porder(x, 1, 20000), -5,0, ylab = "Probability", xlab = "min", lwd = 3)
+curve(dorder(x, 1, 20000), -5,0, ylab = "Density", xlab = "min", lwd = 3)
+```
+
+As expected the minimums have now shifted to near -4 as we have more posibility of extreme values.
+
+```{r prob_dens_graph_save, include=FALSE}
 svg("./assets/min-pdf-cdf.svg", width = 5, height = 6)
 par(mfrow = c(2,1))
 curve(porder(x, 1, 200), -5,0, ylab = "Probability", xlab = "min", lwd = 3)
 curve(dorder(x, 1, 200), -5,0, ylab = "Density", xlab = "min", lwd = 3)
 dev.off()
-
-curve(porder(x, 1, 200), -5,0, ylab = "Probability", xlab = "min", lwd = 3)
-curve(dorder(x, 1, 200), -5,0, ylab = "Density", xlab = "min", lwd = 3)
-
 ```
 
 

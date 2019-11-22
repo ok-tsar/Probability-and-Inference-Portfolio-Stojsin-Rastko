@@ -8,7 +8,7 @@ output: html_document
 ### Rastko Stojsin
 
 
-```{r}
+```{r include=FALSE}
 library(ggplot2)
 library(tidyverse)
 ```
@@ -18,25 +18,20 @@ LOOK HERE
 ```{r}
 calc_summary <- function(p) {
   rand_sample_grid <- matrix(NA, ncol=length(p), nrow=5000)
-  
   for(i in 1:5000){
     resamp.data <- rnorm(200)
     rand_sample_grid[i,] <- quantile(resamp.data,p)
   }
-  
   return(rand_sample_grid)
 }
 
-rand_sample_grid <- calc_summary(p=seq(0.05,0.95,by=0.05))
+rand_sample_grid <- calc_summary(p=seq(0.05,0.95,by=0.01))
 ```
 
 ```{r}
-
 mid.length <- apply(rand_sample_grid, 2, function(x) quantile(x,0.975)-quantile(x, 0.025))
-
-plot(seq(0.05,0.95,by=0.05), mid.length)
-
-plot(dnorm(qnorm(seq(0.05,0.95,by=0.05))), mid.length)
+plot(seq(0.05,0.95,by=0.01), mid.length)
+plot(dnorm(qnorm(seq(0.05,0.95,by=0.01))), mid.length)
 ```
 
 
@@ -44,25 +39,19 @@ plot(dnorm(qnorm(seq(0.05,0.95,by=0.05))), mid.length)
 ```{r}
 calc_summary <- function(p) {
   rand_sample_grid <- matrix(NA, ncol=length(p), nrow=5000)
-  
   for(i in 1:5000){
     resamp.data <- rexp(200)
     rand_sample_grid[i,] <- quantile(resamp.data,p)
   }
-  
   return(rand_sample_grid)
 }
-
-rand_sample_grid <- calc_summary(p=seq(0.05,0.95,by=0.05))
+rand_sample_grid <- calc_summary(p=seq(0.05,0.95,by=0.01))
 ```
 
 ```{r}
-
 mid.length <- apply(rand_sample_grid, 2, function(x) quantile(x,0.975)-quantile(x, 0.025))
-
-plot(seq(0.05,0.95,by=0.05), mid.length)
-
-plot(dexp(qexp(seq(0.05,0.95,by=0.05))), mid.length)
+plot(seq(0.05,0.95,by=0.01), mid.length)
+plot(dexp(qexp(seq(0.05,0.95,by=0.01))), mid.length)
 ```
 highest density smallest middle length - persice
 
@@ -86,6 +75,25 @@ rf4 <- function(N){
 }
 ```
 
+
+
+```{r}
+calc_summary <- function(p) {
+  rand_sample_grid <- matrix(NA, ncol=length(p), nrow=5000)
+  for(i in 1:5000){
+    resamp.data <- rf3(200)
+    rand_sample_grid[i,] <- quantile(resamp.data,p)
+  }
+  return(rand_sample_grid)
+}
+rand_sample_grid <- calc_summary(p=seq(0.05,0.95,by=0.01))
+```
+
+```{r}
+mid.length <- apply(rand_sample_grid, 2, function(x) quantile(x,0.975)-quantile(x, 0.025))
+plot(seq(0.05,0.95,by=0.01), mid.length)
+plot(df3(qf3(seq(0.05,0.95,by=0.01))), mid.length)
+```
 
 
 
