@@ -368,12 +368,12 @@ summary {
 
 <div id="data-science-5620-deliverable-08" class="section level2">
 <h2>Data Science 5620 — Deliverable 08</h2>
-<div id="coverge-probability" class="section level3">
-<h3>Coverge Probability</h3>
+<div id="coverage-probability" class="section level3">
+<h3>Coverage Probability</h3>
 </div>
-</div>
-<div id="rastko-stojsin" class="section level1">
-<h1>### Rastko Stojsin</h1>
+<div id="rastko-stojsin" class="section level3">
+<h3>Rastko Stojsin</h3>
+<p>====================</p>
 <p>Coverage probability is an important operating characteristic of methods for constructing interval estimates, particularly confidence intervals.</p>
 <p><strong>Definition:</strong> For the purposes of this deliverable, define the 95% confidence interval of the mean to be the middle 95% of sampling distribution of the mean. Similarly, the 95% confidence interval of the median, standard deviation, etc. is the middle 95% of the respective sampling distribution.</p>
 <p><strong>Definition:</strong> For the purposes of this deliverable, define the coverage probability as the long run proportion of intervals that capture the population parameter of interest. Conceptualy, one can calculate the coverage probability with the following steps</p>
@@ -383,6 +383,8 @@ summary {
 <li>determine if the confidence captures the population parameter</li>
 <li>Repeat steps (1) - (3) many times. Estimate the coverage probability as the proportion of samples for which the confidence interval captured the population parameter.</li>
 </ol>
+</div>
+</div>
 <div id="suggested-steps" class="section level2">
 <h2>Suggested steps</h2>
 <pre class="r"><code># set sample, pop, and conf int params
@@ -418,9 +420,10 @@ for (i in 1:sims.evaluation) {
   check.medi &lt;- (ci.medi[1] &lt;= pop.medi) &amp; (pop.medi &lt;=ci.medi[2])
   captured.medi &lt;- captured.medi + check.medi
 }
-final &lt;- mean(captured.medi)/sims.evaluation
+final &lt;- captured.medi/sims.evaluation
 final</code></pre>
-<pre><code>## [1] 0.9864</code></pre>
+<pre><code>##   2.5% 
+## 0.9866</code></pre>
 <p><strong>Step:</strong> Generate a single sample from a standard normal distribution of size <em>N</em> = 201. Explain to the reader how you use MLE to estimate the distribution.</p>
 <p>Used MLE to take the mean and standard deviation of the 201 samples. We can do this because the samples are random on a normal distribution.</p>
 <p><strong>Step:</strong> Show the reader how you approximate the sampling distribution of the median, conditional on the estimate of the distribution in the previous step.</p>
@@ -433,7 +436,6 @@ final</code></pre>
 <p>We do the steps above many times (5000) to generate many coverages - we then divide the ones that covered by the total number of sims. This will give us the proportion of simulations whose confidence interval covered the population mean. In one run I had 4925 of the 5000 simulations cover - meaning we have a coverage probability of 98.5%!</p>
 <p><strong>Step:</strong> Describe how you might change the simulation to learn more about the operating characteristics of your chosen method for constructing the 95% confidence interval.</p>
 <p>We could make the population standard deviation tighter to see if hitting the cover becomes easier. We could also try to look at not the middle 95% around the median - but the tightest possible 95% confidence interval in each simulation. This should be centered around the median as we used a normal distribution but it will be different simulation to simulation.</p>
-</div>
 </div>
 
 

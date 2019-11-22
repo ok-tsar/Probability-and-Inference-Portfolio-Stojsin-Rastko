@@ -6,8 +6,9 @@ output:
 ---
 
 ## Data Science 5620 --- Deliverable 08
-### Coverge Probability
+### Coverage Probability
 ### Rastko Stojsin
+
 ====================
 
 Coverage probability is an important operating characteristic of methods
@@ -68,7 +69,7 @@ for (i in 1:sims.evaluation) {
   check.medi <- (ci.medi[1] <= pop.medi) & (pop.medi <=ci.medi[2])
   captured.medi <- captured.medi + check.medi
 }
-final <- mean(captured.medi)/sims.evaluation
+final <- captured.medi/sims.evaluation
 final
 ```
 
