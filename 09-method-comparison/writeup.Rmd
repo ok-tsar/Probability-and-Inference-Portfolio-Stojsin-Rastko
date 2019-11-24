@@ -1,0 +1,186 @@
+---
+title: "writeup"
+output: html_document
+---
+
+## Data Science 5620 --- Deliverable 09
+### Method Comparison
+### Rastko Stojsin
+
+Coverage probability is an important operating characteristic of methods for constructing interval estimates, particularly confidence intervals.
+
+Idealy, a 95% confidence interval will capture the population parameter of interest in 95% of samples. One can also calculate 80% or 90% confidence intervals. In general, an X% confidence interval should capture the population parameter of interest in X% of samples.
+
+#### Not All Methods Are Created Equal
+
+In this assignment, I will perform a 2 × 4 × 2 factorial simulation study to compare the coverage probability of various methods of calculating 90% confidence intervals. The three factors in the experiment are
+
+1. True, underlying distribution
+
+  a. standard normal
+      
+  b. gamma(shape = 1.4, scale = 3)
+  
+
+2. Model of Use
+  
+  a. method of moments with normal
+  
+  b. method of moments with gamma
+  
+  c. kernel density estimation
+  
+  d. bootstrap
+  
+  
+3. Parameter of interest
+
+ a. sample min (1st order statistic)
+ 
+ b. median
+ 
+
+
+Other settings in the experiment that will not change are:
+
+ a. Sample size, N = 201
+
+ b. Outside the loop estimation
+ 
+```{r load_librarys, include=FALSE}
+library(tidyverse)
+```
+
+```{r gen_data, cache=TRUE}
+generate_data <- function (N, dist, sh = 1.4, sc=3) {
+  if (dist == "norm"){
+    rnorm(N)
+  }else if(dist == "gamma"){
+    rgamma(N,shape=sh,scale=sc)
+  }
+}
+```
+
+```{r estimate_ci_function, cache=TRUE}
+estimate_ci <- function(data, mod, par.int, R=5000, smoo = 0.3) {
+  N <- length(data)
+  sum.measure <- get(par.int)
+  
+# Method of Moments - Normal
+  if (mod == "MMnorm"){
+    mm.mean <- mean(data)
+    mm.sd <- sd(data)
+    samp.dist <- NA
+    for(i in 1:R) {
+      sim.data <- rnorm(length(data), mm.mean, mm.sd)
+      if (par.int == "median") {
+        samp.dist[i] <- median(sim.data)
+      }else if (par.int == "min") {
+        samp.dist[i] <- min(sim.data)
+      }
+    }
+    return(quantile(samp.dist, c(0.05,0.95)))
+    
+# Method of Moments - Gamma
+  }else if(mod == "MMgamma"){
+    mm.shape <- mean(data)^2/var(data)
+    mm.scale <- var(data)/mean(data)
+    samp.dist <- NA
+    for(i in 1:R) {
+      sim.data <- array(rgamma(length(data)*R, shape = mm.shape, scale = mm.scale), dim = c(N,R))
+      samp.dist <- apply(sim.data, 2, FUN = sum.measure)
+    }
+    return(quantile(samp.dist, c(0.05,0.95)))
+    
+# Kernal Density Estimation
+  }else if(mod == "KDE"){
+    # chapter 8 in his notes october 9th -
+    ecdfstar <- function(t, data, smooth = smoo){
+      outer(t, data, function(a,b){pnorm(a,b,smooth)}) %>% rowMeans
+    }
+    tbl <- data.frame(
+      # range.x <- range(data)
+      x = seq(min(data)-sd(data), max(data)+sd(data),by=0.01)
+    )
+    tbl$p <- ecdfstar(tbl$x, data, smoo)
+    tbl <- tbl[!duplicated(tbl$p),]
+    qkde <- function(ps, tbl){
+      rows <- cut(ps, tbl$p, labels = FALSE)
+      tbl[rows, "x"]
+    }
+    U <- runif(N*R)
+    sim.data <- array(qkde(U, tbl), dim=c(N,R))
+    samp.dist <- apply(sim.data, 2, sum.measure)
+    return(quantile(samp.dist, c(0.05,0.95), na.rm=TRUE))
+    
+# Bootstraping
+  }else if(mod == "Boot"){
+    samp.dist <- NA
+    for(i in 1:R) {
+      sim.data <- sample(data, N, replace=TRUE)
+      samp.dist[i] <- sum.measure(sim.data)
+    }
+    return(quantile(samp.dist, c(0.05,0.95)))
+  }
+  return()
+}
+```
+
+
+```{r capture_par_setup_truths, cache=TRUE}
+capture_par <- function(ci, true.par){
+  1*(ci[1]<true.par & true.par<ci[2])
+}
+N <- 201
+shape <- 1.4
+true.norm.med <- qnorm(0.5)
+true.norm.min <- mean(apply(array(rnorm(N*10000), dim=c(N,10000)),2,min))
+true.gamma.med <- qgamma(0.5, shape = 1.4, scale = 3)
+true.gamma.min <- mean(apply(array(rgamma(N*10000, shape = 1.4, scale=3), dim=c(N,10000)),2,min))
+```
+
+
+```{r setup_grid, cache=TRUE}
+simsettings <- expand.grid(dist=c("norm","gamma"), model=c("MMnorm","MMgamma","KDE","Boot"), par.int=c("median", "min"), cov.prob=NA, stringsAsFactors = FALSE, KEEP.OUT.ATTRS = FALSE)
+```
+
+
+```{r sim_run, cache=TRUE}
+for (k in c(1:2,4:10,12:16)) {
+  dist1 <- simsettings[k,1]
+  model1 <- simsettings[k,2]
+  par.int1 <- simsettings[k,3]
+
+
+  if (dist1=="norm"&par.int1 =="median") {
+    true.par1 <- true.norm.med
+  }else if (dist1=="norm"&par.int1 =="min") {
+    true.par1 <- true.norm.min
+  }else if (dist1=="gamma"&par.int1 =="median") {
+    true.par1 <- true.gamma.med
+  }else if (dist1=="gamma"&par.int1 =="min") {
+    true.par1 <- true.gamma.med
+  }
+  cover <- NA
+
+
+  for(sims in 1:5000) {
+    cover[sims] <- generate_data(N, dist1) %>% 
+      estimate_ci(mod=model1,R=100, par.int=par.int1) %>% 
+      capture_par(true.par = true.par1)
+  }
+  simsettings[k,4] <- mean(cover)
+}
+simsettings
+```
+
+For the Method of Moments normal model, we have really high coverage when the underlying distribution is normal for both median and minimum estimates. But the Method of Moments normal model performs very poorly when the underlying distribution is a gamma distribution (shape = 1.4, scale = 3).
+
+For the Method of moments gamma model, we have high coverage when the underlying distribution is a gamma distribution (1.4, 3) and when we are estimating the median. The minimum estimate has a coverage probability of 0.0. We also have NA values for coverage probability when using this model on an underlying normal distribution. This is because the method of moments gamma model cannot handel the negative values that occure under a standard normal distribution. We could potencially account for this by shifting the normal distribution so that all given values are positive.
+
+For the kernel density estimation model, we have high coverage for estimating median (somewhat better when underlying distribution is normal not gamma). We also have high coverage of the KDE model when estimating minimum of a normal distribution - 0.00 coverage when the underlying distribution is gamma.
+
+Finally the bootstrap model has solid coverage for both the normal and gamma underlying distributions when estimating the median. The model has much worse coverage for minimum estimation.
+
+All models in general are better at median estimation than minimum estimation because the density is generally higher at the median than the minimum (especially for normal distributions).
+
