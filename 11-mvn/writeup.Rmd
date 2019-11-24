@@ -1,0 +1,81 @@
+---
+title: "writeup"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## Data Science 5620 --- Deliverable 11
+### MVN
+### Rastko Stojsin
+
+```{r library, include=FALSE}
+library(tidyverse)
+library(ggplot2)
+```
+
+
+Simulation study: Power and sample size calculations correlational studies
+
+A common research objective is to demonstrate that two measurements are highly correlated. One measurement, call it A, may reflect the severity of disease but is difficult or costly to collect. Another measurement, call it B, may be easier to collect and potentially related to measurement A. If there is strong association between A and B, a cost effective strategy for diagnosis may be to collect measurement B instead of A.
+
+In this deliverable, I will perform a power and sample size calculation for a collaborator who is submitting a grant application to fund a study to show that two measurements are highly correlated. Reviewers of the grant want to fund studies that have a high likelihood of success, which in this setting is conclusively demonstrating that the correlation between A and B is greater than 0.8.
+
+The researcher will collect both measurements on N individuals. The analysis will proceed by calculating a one-sided confidence interval. If the confidence interval is completely within the range from 0.8 to 1, then the researcher will consider the study to be a success: A conclusive demonstration that the correlation between A and B is greater than 0.8.
+
+Power is the probability that the study will end in success when the true underlying correlation is, in fact, greater that 0.8. (Note the connection to Type II error (β): power = 1 - β.) Your collaborator needs you to estimate power for different combinations of sample size and the true population correlation. 
+
+I will let the sample size be from 25 too 200 by intervals of 25. 
+I will let the population correlation range from 0.8 to 1.0.
+
+The code below provides the power calculation for a single combination of N and population correlation.
+
+```{r catch = TRUE}
+set.seed(20394)
+suppressPackageStartupMessages(require(mvtnorm))
+calc_power <- function(count, correlation) {
+  N <- count
+  rho <- correlation
+  null_correlation <- 0.8
+  R <- 5000
+
+  sigma <- array(c(1,rho,rho,1), c(2,2))
+  mu <- c(0,0)
+
+  detect <- rep(NA, R)
+  for(i in 1:R){
+    data <- rmvnorm(N, mean = mu, sigma = sigma)
+    results <- cor.test(x = data[,1], y = data[,2], alternative = "greater")
+    detect[i] <- results$conf.int[1] > null_correlation
+  }
+  power <- mean(detect)
+  return(power)
+}
+```
+
+The following code creates a grid with all possibilities of N and population I specified
+
+```{r create_grid, catch = TRUE}
+grid <- expand.grid(N = seq(25,200, by=25), rho = seq(0.8,1.0,by=0.01), power = NA)
+grid
+```
+
+In this code I loop through the grid then using the N and population correlation values and the function above to generate power values and put these values back into the grid.
+
+```{r populate_grid, catch = TRUE}
+for (i in 1:nrow(grid)){
+  grid[i,3] <- calc_power(grid[i,1], grid[i,2])
+  }
+grid
+```
+
+Next we plot the power based on population variable correlation for different numbers of samples.
+
+```{r}
+grid %>% 
+  ggplot(aes(x = rho, y = power, color=factor(N), group=N)) + 
+  geom_line() 
+```
+
+We can see that power increases both as number of samples increases and as the relationship between the important variable and the measured variable increases. It is also interesting to note that the amount of power increase slows - the difference in power between 25 samples and 50 samples is more sizable than the difference between 175 and 200 samples. Also note that at 0.8 correlation our power is 0.05 this is because this is the null correlation and the base confidence we used.
+
