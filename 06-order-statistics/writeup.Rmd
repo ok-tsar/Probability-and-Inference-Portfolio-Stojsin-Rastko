@@ -48,6 +48,7 @@ This graph shows us the density function for the median of a standard normal dis
 porder <- function(x){
   pbinom(100-1, 200, pnorm(x), lower.tail = FALSE)
 }
+plot(seq(-0.5,0.5, by=0.0001), porder(seq(-0.5,0.5, by=0.0001)), type = "l", xlab = "medians", ylab = "probability") 
 ```
 
 
@@ -62,6 +63,8 @@ qorder <- function(p){
   }
   out
 }
+
+plot(seq(-0.5,0.5, by=0.0001), qorder(seq(0,1, by=0.0001)), type = "l", xlab = "medians") 
 ```
 
 ### Q4
