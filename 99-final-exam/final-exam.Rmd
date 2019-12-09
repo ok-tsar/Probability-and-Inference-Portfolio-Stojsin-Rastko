@@ -1,0 +1,608 @@
+---
+title: "Final Exam"
+output: html_document
+---
+
+0. Names: Rastko Stojsin 
+
+# 1. Simulation
+
+The Monte Hall problem is a classic game show.  Contestants on the show where shown three doors.  Behind one randomly selected door was a sportscar; behind the other doors were goats.
+
+At the start of the game, contestants would select a door, say door A.  Then, the host would open either door B or C to reveal a goat.  At that point in the game, the host would ask the contestant if she would like to change her door selection.  Once a contestant decided to stay or change, the host would open the choosen door to reveal the game prize, either a goat or a car.
+
+In this problem, consider a **modified** version of the Monte Hall problem in which the number of doors is **variable**.  Rather than 3 doors, consider a game with 4 or 5 or 50 doors.  In the modified version of the game, a contestant would select an initial door, say door A.  Then, the host would open **one** of the remaining doors to reveal a goat.  At that point in the game, the host would ask the contestant if she would like to change her door selection.  Once a contestant decided to stay or change, the host would open the choosen door to reveal the game prize, either a goat or a car.
+
+Consider two strategies:
+  
+  1. Always stay with the first door selected.
+  2. Always switch to the unopened door.
+
+**C.** The function `game` below plays a single game of Monte Hall.  The function returns a vector of length two, the first element is the prize under strategy 1 and the second element is the prize under strategy 2.  The function has a single input parameter, N, which is the number of doors in the game.
+
+Use the `game` function to estimate the probability that both strategies result in a goat. Let **N=4**.
+
+```{r}
+require(magrittr)
+require(dplyr)
+
+game <- function(N){
+  if(N<3) stop("Must have at least 3 doors")
+  prize <- sample(c(rep("goat",N-1),"car"), N)
+  guess <- sample(1:N,1)
+  game <- data.frame(door = 1:N, prize = prize, stringsAsFactors = FALSE) %>% 
+    mutate(first_guess = case_when(
+      door == guess ~ 1
+      , TRUE ~ 0
+    )) %>% 
+    mutate(potential_reveal = case_when(
+        first_guess == 1 ~ 0
+      , prize == "car" ~ 0
+      , TRUE ~ 1
+    )) %>% 
+    mutate(reveal = 1*(rank(potential_reveal, ties.method = "random") == 3)) %>% 
+    mutate(potential_switch = case_when(
+      first_guess == 1 ~ 0
+      , reveal == 1 ~ 0
+      , TRUE ~ 1
+    )) %>% 
+    mutate(switch = 1*(rank(potential_switch, ties.method = "random") == 3))
+  c(game$prize[game$first_guess == 1], game$prize[game$switch == 1])
+}
+```
+
+```{r catch = TRUE}
+stay_win <- NA
+N <- 4
+for (i in 1:3000) {
+  if (game(N)[1] == "car") {
+    stay_win[i] <- 1 
+  }
+  else {
+    stay_win[i] <- 0
+  }
+}
+
+switch_win <- NA
+N <- 4
+for (i in 1:3000) {
+  if (game(N)[2] == "car") {
+    switch_win[i] <- 1 
+  }
+  else {
+    switch_win[i] <- 0
+  }
+}
+
+print(paste0("the probability of winning car with strategy 1:  ",round(mean(stay_win),5)))
+print("This makes sence the probability of winning with strategy 1 should be 1/4 because in order to win with strategy 1 you need to pick right on the first guess - where you have a 25% chance given 4 doors.")
+print(paste0("the probability of winning car with strategy 2:  ",round(mean(switch_win),5)))
+```
+
+
+**B**. Continuing from part **C**, what is the probability that at least one of the strategies results in winning a car?
+
+
+```{r}
+print(paste0("the probability of winning car with at least one of the strategies is:  ",(round(mean(stay_win),5) + round(mean(switch_win),5))))
+print("Because the strategies are mutually exclusive the prob that at least one will win a car is just the addition of the two probabilities.")
+```
+
+**A**. Communicate the precision of your simulated probability in part **B** by calculating a **99\%** confidence interval.
+
+```{r}
+perc <- (stay_win+switch_win) %>% t.test(conf.level = 0.99)
+lower_bound <- perc$conf.int[1]
+upper_bound <- perc$conf.int[2]
+print(paste0("The confidence interval at 99% confidence is between:  ",(round(lower_bound,5)), " and ", (round(upper_bound,5))))
+```
+
+
+# 2. Probability
+
+Consider a test for a rare genetic condition.  Let T+ denote a test result that indicates the condition is present, while T- denotes absence.  Let D+ and D- denote the true status of the disease.
+
+**C**.  Fill-in the probability table using the following information:
+
++ P(T+|D+) = .85,  and 
++ P(T-|D-) = .95,  and 
++ P(D+) = 0.001
+
+|    | D+ | D- |   |
+|:---:|:---:|:---:|:---:|
+| T+ | 0.00085 | 0.04995 | 0.0508 |
+| T- | 0.00015 | 0.94905 | 0.9492 |
+|   | 0.001  | 0.999 | 1  |
+
+**B**. Calculate the **negative** predictive value of the test, P(D-|T-).
+
+```{r}
+# negative predictive value = P(T-D-) / (P(T-D-) + P(T-D+))
+p_tn_dn = 0.94905
+p_tn_dp = 0.00015
+neg_pred_val = p_tn_dn / (p_tn_dn + p_tn_dp)
+print(paste0("the negative predictive value is:  ",
+             round(neg_pred_val,5)))
+```
+
+
+**A** Create a plot that shows how the **positive** predictive value as a function of the prevalence of disease, P(D+).
+
++ P(T+|D+) = .85,  and 
++ P(T-|D-) = .95,  and 
++ P(D+) = 0.001
+```{r}
+# positive predictive value = P(T+D+) / (P(T+D+) + P(T+D-))
+# prevalence <- sequence(0.001, 0.1, length = 50)
+prevalence <- seq(0.001, 0.1, length.out = 50)
+p_tp_dp <- 0.85*prevalence
+p_tn_dp <- 0.001 - p_tp_dp
+p_tn_dn <- 0.999*0.95
+p_tp_dn <- 0.999 - p_tn_dn
+ppv <- (p_tp_dp) / (p_tp_dp + p_tp_dn)
+plot(prevalence, ppv, xlab = "Prevalence", ylab = "PPV")
+```
+
+# 3. Discrete Distributions
+
+Suppose the yearly hospital charges (in thousands of dollars) for a randomly selected Vanderbilt student is a mixture distribution.
+
+For 50% of students, the hospital charges will be $0.  For the remaining 50% of students, the hospital charges are a random variable described by a gamma distribution with shape = 2 and scale = 2.  (Again, in thousands of dollars.)   
+
+```{r}
+hospital_charges <- function(N){
+  group <- rbinom(N, 1, 0.5)
+  charges <- 0*group + rgamma(N, shape = 2, scale = 2)*(1-group)
+  charges
+}
+```
+
+**C**.  What is the 90th percentile for yearly hospital charges for a randomly selected Vanderbilt student?
+```{r}
+nindith_percentile <- quantile(hospital_charges(10000000), 0.9)
+print(paste0("the 90th percentile of yearly hospital charges will be :  ",
+             round(nindith_percentile,5), " (thousands of $)"))
+```
+
+**B**.  Consider the **class** average yearly hospital charge for the students in a class of size 30.  Plot the density function or a simulated histogram of the class average yearly hospital charge.
+
+```{r}
+R <- 5000
+out <- rep(NA, R)
+for(i in 1:R){
+  out[i] <- mean(hospital_charges(30))
+}
+hist(out, main = "avg yearly hospital charge in a class of 30", freq = FALSE, xlab = "charge in thousands of $")
+```
+
+
+**A**.  What is the probability that a randomly selected class of size 30 students will have less than 10 students with zero yearly hospital charges?
+
+```{r}
+R <- 50000
+not_pass <- rep(NA, R)
+for(i in 1:R){
+  if (sort(hospital_charges(30))[10] == 0)
+    not_pass[i] = 0
+  else 
+    not_pass[i] = 1
+}
+prob_less <- mean(not_pass)
+print(paste0("prob of a class with less than 10 students with zero yearly hospital charges: ", prob_less))
+```
+
+
+# 4. Continuous Distributions
+
+**C.** Suppose diastolic blood pressure (DBP) follows a normal distribution with mean 80 mmHg and SD 15 mmHg. What is the probability that a randomly sampled personâ€™s DBP lies between 70 and 104 mmHg?
+
+```{r}
+prob_pers_bet <- pnorm(104,80,15) - pnorm(70,80,15)
+print(paste0("prob a random person lies between 70 and 104 mmHg is: ", prob_pers_bet))
+```
+
+
+**B.** Suppose a human femur was discovered that is 37 cm long.  Also suppose that using the NHANES data, researchers believe the distribution of femor bones, by sex, are distributed as follows:
+
++ Female adult femor $\sim N(36, 3.3)$
++ Male adult femor $\sim N(40, 3.4)$
+
+Under the assumption that male and females are equally likely, what is the probability that the discovered femor was from a male?
+
+```{r}
+# (P(FL = 40 | sex = m)P(M)) / (P(FL=40 | sex = m)(P(m)) + p(FL = 40 | sex = f)(P(f)))   )
+prob_37_male <- dnorm(37, mean= 40, sd= 3.4)
+prob_37_female <- dnorm(37, mean= 36, sd= 3.3)
+prob_was_male <- prob_37_male*0.5 / ((prob_37_male*0.5)+(prob_37_female*0.5))
+
+print(paste0("probability that 40cm femur was from male : ",
+             prob_was_male))
+```
+
+
+**A.**  Continuing part **B**, generate a plot of P(femor from male | femor length = x).  Let femor length range from 25 to 50.
+
+```{r}
+femor_length <- 25:50
+prob_fem_male <- dnorm(femor_length, mean= 40, sd= 3.4)
+prob_fem_female <- dnorm(femor_length, mean= 36, sd= 3.3)
+prob_male <- prob_fem_male*0.5 / ((prob_fem_male*0.5)+(prob_fem_female*0.5))
+plot.new()
+plot.window(xlim = c(25,50), ylim = c(0,1))
+lines(femor_length, prob_male)
+axis(1)
+axis(2)
+box()
+title(xlab = "Femor Length", ylab = "P( Male | femor length)")
+```
+
+# 5. Expectation and Variance
+
+Let us revisit the yearly hospital charges distribution from a previous section.
+
+>**Recall:** The yearly hospital charges (in thousands of dollars) for a randomly selected Vanderbilt student is a mixture distribution. For 50% of students, the hospital charges will be $0.  For the remaining 50% of students, the hospital charges are a random variable described by a gamma distribution with shape = 2 and scale = 2.  (Again, in thousands of dollars.)   
+
+```{r}
+hospital_charges <- function(N){
+  group <- rbinom(N, 1, 0.5)
+  charges <- 0*group + rgamma(N, shape = 2, scale = 2)*(1-group)
+  charges
+}
+```
+
+**C.** What is E[yearly hospital charges]?
+
+```{r}
+exp_val <- mean(hospital_charges(1000000))
+print(paste0("expected value of yearly hospital charges is : ",
+             round(exp_val,5)))
+```
+
+
+**B.** Suppose Vanderbilt implements a cap of \$10,000 on yearly student hospital charages.  What is the mean yearly hospital charge under the new policy?
+
+```{r}
+out <- hospital_charges(1000000)
+for (i in 1:1000000){
+  if (out[i] > 10) {
+    out[i] = 10}
+  else {
+    out[i] = out[i]}
+}
+max(out) # sanity check
+exp_val2 <- mean(out)
+print(paste0("the new expected value of hospital charges is : ",
+             round(exp_val2,5)))
+```
+
+
+**A.** What is the variance of yearly hospital charge under the new policy?
+
+```{r}
+M <- 5000
+out <- hospital_charges(5000)
+out2 <- rep(NA, M)
+for(i in 1:M){
+  out2[i] <- sample(out, replace = TRUE) %>% var
+}
+
+obs_var <- var(out)
+par(mfrow = c(1,2))
+hist(out2, freq = FALSE, main = "var of hospital chare under new policy", xlab = "Sample variances")
+abline(v = obs_var, col = "blue", lwd = 3)
+```
+
+
+# 6. Transformations & Sampling Distributions
+
+**C.** Consider the log normal distribution.  If X is a log normal random variable, then log(X) is a normal random variable.  One way to create pseudo-random draws from the log normal distribution is to generate draws from a normal distribution and then to transform the draws by expononentiating.  The parameters of the log normal distribution are the parameters of the underlying normal distribution, $\mu$ and $\sigma$ (or $\sigma^2$).  
+
+Log normal data are prevalent is biological systems and econometrics.
+
+Suppose a blood chemistry measure has a log normal distribution with $\mu$ = 0 and $\sigma$ = 1. Generate an histogram or density curve for the sampling distribution of the median when the sample size is 101.
+
+```{r}
+meds <- NA
+for (i in seq(1,50000)){
+  qwe<-rlnorm(101,0, 1)
+  meds[i] <- median(qwe)
+}
+hist(meds,freq = F)
+```
+
+
+**B.** Below is the CDF function for the kth order statistic when the underlying distribution is log normal with $\mu$ = 0 and $\sigma$ = 1.  Create a plot of the ECDF of the simulated sampling distribution generated in **C** and overlay the CDF using the function below.
+
+```{r}
+Fk <- function(x,k,n){
+  pbinom(k-1, n, plnorm(x), lower.tail = FALSE)
+}
+in_c <- ecdf(meds)
+plot(in_c,col='red')
+curve(Fk(x, 50, 101), add = TRUE, col = "blue")
+```
+
+**A.** Of the 25th, 50th, and 75th quantiles of the distribution from **B**, which will have the tighest 95% CI?  (Show the sampling distribution of each.)
+
+```{r}
+R <- 50000
+set.seed(45)
+data <- rlnorm(101,0,1)
+
+sampdist <- rep(NA, R)
+for(i in 1:R){
+  b <- sample(data, length(data), replace = TRUE)
+  sampdist[i] <- median(b)
+}
+
+med_dist = quantile(sampdist, 0.975) - quantile(sampdist, 0.025)
+
+R <- 50000
+set.seed(45)
+data <- rlnorm(101,0,1)
+sampdist25 <- rep(NA, R)
+for(i in 1:R){
+  b <- sample(data, length(data), replace = TRUE)
+  sampdist25[i] <- quantile(b, 0.25)
+}
+
+twentfive_dist = quantile(sampdist25, 0.975) - quantile(sampdist25, 0.025)
+
+R <- 50000
+set.seed(45)
+data <- rlnorm(101,0,1)
+sampdist75 <- rep(NA, R)
+for(i in 1:R){
+  b <- sample(data, length(data), replace = TRUE)
+  sampdist75[i] <- quantile(b, 0.75)
+}
+sevenfive_dist = quantile(sampdist75, 0.975) - quantile(sampdist75, 0.025)
+
+print(paste0("at 25th quantilte :", twentfive_dist))
+print(paste0("at 50th quantilte :", med_dist))
+print(paste0("at 75th quantilte :", sevenfive_dist))
+```
+
+the tightest distribution is at the 25th percentile - this is because the log normal rises very quickly and is falling by the time it gets to the 50th percentile - this means that the highest density data is near the beging of the log - near the 25th quantile. high density means more accurate prediction - ie. smaller 95% CI
+
+
+
+# 7. Estimation of CDF and PDF from data
+
+The following code will load the NHANES data and select the first 500 rows.
+
+```{r}
+Hmisc::getHdata(nhgh)
+d1 <- nhgh[1:500,]
+```
+
+**C.** Estimate the distribution of standing height for adult (age > 18) males using the MLE method with a normal distribution.  Create a plot of the estimated density function.
+
+```{r}
+ht_male_ab18 <- d1 %>%
+  filter(sex=="male") %>% 
+  filter(age > 18) %>% 
+  select(ht)
+
+dat.mean<- mean(ht_male_ab18$ht)
+dat.sd <- sd(ht_male_ab18$ht)
+data.len<-length(ht_male_ab18$ht)
+hist(rnorm(data.len,dat.mean,dat.sd),freq = F)
+curve(dnorm(x,dat.mean,dat.sd),add=T,from=0,to=200)
+```
+
+**B.** Estimate the distribution of BMI for adult (age > 18) females using using the method of moment method with the gamma distribution. Create a plot of the estimated density function.
+
+```{r}
+bmi_female_ab18 <- d1 %>%
+  filter(sex=="female") %>% 
+  filter(age > 18) %>% 
+  select(wt)
+xbar <- mean(bmi_female_ab18$wt)
+s2 <- var(bmi_female_ab18$wt)
+shape <- (xbar^2) / s2
+scale <- s2/xbar
+Fbmi <- function(x){
+  pgamma(x,shape = shape,scale = scale)
+}             
+# Cumalitive Density function 
+plot(ecdf(bmi_female_ab18$wt))
+curve(Fbmi(x),add = T, col='blue')
+# Prob Density 
+# est density func
+fwt <- function(x){
+  dgamma(x,shape = shape,scale = scale)
+}   
+hist(bmi_female_ab18$wt,freq = F)
+curve(fwt(x),add=T,col='blue')
+```
+
+**A.** Estimate the distribution of creatinine (SCr) for adults (age > 18) using the kernel density method with a gaussian kernel.  Create a plot of the estimated density function.
+
+```{r}
+Hmisc::getHdata(nhgh)
+d1 <- nhgh[1:500,]
+
+scr_data <- d1 %>%
+  select(age,SCr)%>%
+  filter(age>18)
+scr_data <- na.omit(scr_data)
+ecdfstar <- function(t, data, smooth){
+  outer(t, data, function(a,b){ pnorm(a, b, smooth)}) %>% rowMeans
+}
+# just checking all is good here 
+# density plot is below
+plot(ecdf(scr_data$SCr), main = "")
+curve(ecdfstar(x, scr_data$SCr, smooth = 0), add = TRUE, lwd = 3, col = "blue")
+sample.dist <- NA
+    ecdfstar <- function(t, data, smooth=0){
+    outer(t, data, function(a,b){ pnorm(a, b, smooth)}) %>% rowMeans
+    }
+    
+    tbl <- data.frame(
+    x = seq(min(scr_data$SCr)-sd(scr_data$SCr),max(scr_data$SCr) + sd(scr_data$SCr),by = 0.01)
+)
+    
+tbl$p <- ecdfstar(tbl$x, scr_data$SCr, smooth=1)
+tbl <- tbl[!duplicated(tbl$p),]
+qkde <- function(ps, tbl){
+  rows <- cut(ps, tbl$p, labels = FALSE)
+  tbl[rows, "x"]
+}
+
+# this is my density plot
+ps<-runif(1000)
+Y<-na.omit(qkde(ps,tbl))
+hist(scr_data$SCr,freq = F, ylim = c(0, 2), breaks = 60)
+lines(density(scr_data$SCr,
+        adjust= 1.5,kernel = 'gaussian'), col = "blue")
+```
+
+
+# 8. Sample from an estimated distribution
+
+The following code will load the low birth weight data from the MASS package.  The description of the variables in the dataset can be found in the birthwt documentation with the command `?MASS::birthwt`.
+
+```{r}
+bwt <- MASS::birthwt
+```
+
+**C.** Generate a 95% confidence interval for the mean birthweight of infants whose mothers **did** smoke during pregnancy using the bootstrap.
+
+```{r}
+R <- 100000
+means <- rep(NA, R)
+data <- bwt %>% filter(smoke == 1)
+for(i in 1:R){
+  s <- sample(data$bwt, length(data$bwt), replace = TRUE)
+  means[i] <- mean(s, na.rm = TRUE)
+}
+alpha <- 0.05
+lower_bound <- means %>% quantile(alpha/2)
+upper_bound <- means %>% quantile(1-alpha/2)
+
+print(paste0("The 95% confidence interval for mean birthweight of infants from smoking mothers is between: ",
+             round(lower_bound,5), " and ", round(upper_bound,5)))
+```
+
+**B.** Generate a 95% confidence interval for the mean birthweight of infants whose mothers **did** smoke during pregnancy using the Central Limit Theorem shortcut.
+
+```{r}
+data <- bwt %>% filter(smoke == 1)
+cent_lim_t <- t.test(data$bwt) 
+lower_bound <- cent_lim_t$conf.int[1]
+upper_bound <- cent_lim_t$conf.int[2]
+print(paste0("The 95% confidence interval for mean birthweight of infants from smoking mothers is between: ",
+             round(lower_bound,5), " and ", round(upper_bound,5)))
+```
+
+**A.** Let $\mu_s$ be the mean birthweight of infants whose mothers smoked during pregnancy.  Let $\mu_{ns}$ be the mean for the non-smoking group.  Use simulation to calculate the 95% confidence interval for $\mu_s/\mu_{ns}$.
+
+```{r}
+# using simulation / bootstrapping
+data(birthwt, package = "MASS")
+R <- 100000
+means <- rep(NA, R)
+yes_smoke <- birthwt %>% filter(smoke == 1)
+non_smoke <- birthwt %>% filter(smoke == 0)
+for(i in 1:R){
+  s_smoke <- sample(yes_smoke$bwt, length(yes_smoke$bwt), replace = TRUE)
+  s_non <- sample(non_smoke$bwt, length(non_smoke$bwt), replace = TRUE)
+  means[i] <- mean(s_smoke, na.rm = TRUE) / mean(s_non, na.rm = TRUE)
+}
+alpha <- 0.05
+lower_bound <- means %>% quantile(alpha/2)
+upper_bound <- means %>% quantile(1-alpha/2)
+print(paste0("The 95% confidence interval for ratio of birthrate of smoking mother to non-smoking is from : ",
+             round(lower_bound,5), " and ", round(upper_bound,5)))
+```
+
+
+
+# 9.  Inference
+
+**C.** Suppose two studies were performed looking at the risk of mild complication after hernia repair using open and laparoscopic surgical approaches.  The study results are below.  Using the data from each study individually, perform the hypothesis test that the risk of complication between open and laparoscopic repairs are the same under the usual point null. What is the p-value from each study?  What do you conclude from each study?
+
+
+| Study 1 | Comp | No comp |
+|:---|:---|:---|
+| Open | 30 | 70 |
+| Lap  | 35 | 65 |
+
+| Study 2 | Comp | No comp |
+|:---|:---|:---|
+| Open | 600 |     1400 |
+| Lap  | 619 |     1381 |
+
+
+```{r}
+# study 1 
+prop.test(c(30,35), c(70,65))
+# Ho: risk of complication_open = risk of complication_lap
+# Ha: risk of complication_open != risk of complication_lap
+# we fail to reject Ho - inconclusive
+# the p-value is 0.2694 which means that we would reject Ho IF we used a confidence interval of (1 - 0.2694) instead of the current 0.95 ci
+
+
+# study 2
+prop.test(c(600,619), c(1400,1381))
+# Ho: risk of complication_open = risk of complication_lap
+# Ha: risk of complication_open != risk of complication_lap
+# we fail to reject Ho - inconclusive
+# the p-value is 0.3143 which means that we would reject Ho IF we used a confidence interval of (1 - 0.3143) instead of the current 0.95 ci
+```
+
+
+
+**B.** Suppose that prior to the studies, the researchers established an equivalence threshold of 6 percentage points.  Using the confidence intervals, which studies (if any) showed a conclusive similarity between surgical approaches for the complication rate.  Explain why.
+
+```{r}
+# study 1 
+prop.test(c(30,35), c(70,65))
+# inconclusive - because the confidence interval (-0.29 to 0.072) stradels the equivalence threshold (-0.06 to 0.06)
+
+# study 2
+prop.test(c(600,619), c(1400,1381))
+# can conclude a conclusive similarity ibecause the confidence interval (-0.056 to 0.017) falls within the equivalence threshold (-0.06 to 0.06)
+```
+
+
+**A.** If the data from the studies were combined, what is the smallest equivalence threshold that would identify a conclusive similarity between the surgical approaches?
+
+```{r}
+prop.test(c(600+30,619+35), c(1400+70,1381+65))
+# since the confidence interval is from (-0.06042552 to  0.01300407) an equivalence threshold of (6.05) percentage points would be the smallest threshold to identify a conclusive similarity between the surgical approaches
+```
+
+
+# 10.  Joint Distributions
+
+**C.** Fill in the blank.  The sample correlation is a measure of ____linear_____ association.
+
+
+**B.** Explain why predictions from a conditional distribution generally have smaller prediction error than predictions from the marginal distribution.
+
+### Because if two variables are even somewhat related - knowing something about one variable will give us some information about the other - any prediction from a conditional distribution can never be larger than one from the marginal distribution only the same if there is 0 correlation between the variables. An example of this could be weight - I am certain that weight and height are related and that if I know someone is tall I can guess their weight with better percision then if I know nothing about them (this is assuming they are related of course)
+
+
+**A.** Use the CLT shortcut to calculate the 95% confidence interval for the correlation of arm circumferance and arm length using the NHANES dataset.  Is the sample correlation a reasonable measure of association for this data?
+
+```{r}
+library(ggplot2)
+Hmisc::getHdata(nhgh)
+lower_bound <- (cor.test(nhgh$arml, nhgh$armc))$conf.int[1]
+upper_bound <- (cor.test(nhgh$arml, nhgh$armc))$conf.int[2]
+
+print(paste0("The 95% confidence interval of the correlation between arm circumferance and arm length is  : ",
+             round(lower_bound,5), " and ", round(upper_bound,5)))
+
+ggplot(nhgh) + 
+  aes(x = arml, y = armc) +
+  geom_point(col = "#00000050") +
+  geom_smooth()
+
+print("this is reasonable as arm length and arm size/circumference are surely related! longer arms are thicker - just to be sure you can see that to be true in the scatter plot above showing the relationship between the variables")
+```
+
+
+
