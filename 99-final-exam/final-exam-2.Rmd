@@ -1,0 +1,125 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+```{r setup, include = FALSE}
+`???` <- 5 # This is just so the document compiles.
+require(magrittr)
+require(dplyr)
+```
+
+# Instructions
+
+1. Only complete the sections for which you want a better score.  (Complete all questions within a section.)
+2. After completing the exam:
+   + Delete any sections that you did not complete.
+   + Save the exam as final-exam-2.rmd and final-exam-2.html in the 99-final-exam folder of your Probability and Inference Portfolio repo.
+   + Push your repo.
+
+# 1. Simulation
+
+The Monte Hall problem is a classic game show.  Contestants on the show where shown three doors.  Behind one randomly selected door was a sportscar; behind the other doors were goats.
+
+At the start of the game, contestants would select a door, say door A.  Then, the host would open either door B or C to reveal a goat.  At that point in the game, the host would ask the contestant if she would like to change her door selection.  Once a contestant decided to stay or change, the host would open the choosen door to reveal the game prize, either a goat or a car.
+
+In this problem, consider a **modified** version of the Monte Hall problem in which the number of doors is **variable**.  Rather than 3 doors, consider a game with 4 or 5 or 50 doors.  In the modified version of the game, a contestant would select an initial door, say door A.  Then, the host would open **one** of the remaining doors to reveal a goat.  At that point in the game, the host would ask the contestant if she would like to change her door selection.  Once a contestant decided to stay or change, the host would open the choosen door to reveal the game prize, either a goat or a car.
+
+Consider two strategies:
+  
+  1. Always stay with the first door selected.
+  2. Always switch to the unopened door.
+
+**C.** The function `game` below plays a single game of Monte Hall.  The function returns a vector of length two, the first element is the prize under strategy 1 and the second element is the prize under strategy 2.  The function has a single input parameter, N, which is the number of doors in the game.
+
+Use the `game` function to estimate the probability that both strategies result in a goat. Let **N=4**.
+
+**HINT:** Create an Rx2 array, and store the results of each game as a row in the array.  Create a cross tabulation of the winnings from strategy 1 and strategy 2.
+
+```{r}
+game <- function(N){
+  if(N<3) stop("Must have at least 3 doors")
+  prize <- sample(c(rep("goat",N-1),"car"), N)
+  guess <- sample(1:N,1)
+  game <- data.frame(door = 1:N, prize = prize, stringsAsFactors = FALSE) %>% 
+    mutate(first_guess = case_when(
+      door == guess ~ 1
+      , TRUE ~ 0
+    )) %>% 
+    mutate(potential_reveal = case_when(
+        first_guess == 1 ~ 0
+      , prize == "car" ~ 0
+      , TRUE ~ 1
+    )) %>% 
+    mutate(reveal = 1*(rank(potential_reveal, ties.method = "random") == 3)) %>% 
+    mutate(potential_switch = case_when(
+      first_guess == 1 ~ 0
+      , reveal == 1 ~ 0
+      , TRUE ~ 1
+    )) %>% 
+    mutate(switch = 1*(rank(potential_switch, ties.method = "random") == 3))
+  c(game$prize[game$first_guess == 1], game$prize[game$switch == 1])
+}
+```
+
+```{r, catch = TRUE}
+R <- 50000
+N <- 4
+all_games <- expand.grid(
+  R = seq(1, R, by = 1), 
+  strat_1 = NA_real_,
+  strat_2 = NA_real_,
+  both_goat = NA_real_
+)
+for(i in 1:R){
+  single_game <- game(N)
+  all_games[i, "strat_1"] <- single_game[1]
+  all_games[i, "strat_2"] <- single_game[2]
+}
+```
+
+```{r, catch = TRUE}
+for (i in 1:R) {
+  if (all_games[i,"strat_1"] == "goat"&all_games[i,"strat_2"] == "goat"){
+    all_games[i, "both_goat"] = 1
+  }
+  else {
+    all_games[i, "both_goat"] = 0
+  }
+}
+prob_both_goat <- mean(all_games[,"both_goat"])
+print(paste0("the probability that both strategies in a game result in a goat is: ", prob_both_goat))
+```
+
+**B**. Continuing from part **C**, what is the probability that at least one of the strategies results in winning a car?
+
+**HINT:** Use the cross tabulation from the previous part to calculate this probability.
+
+```{r, catch = TRUE}
+all_games[,"least_one_car"] <- NA
+for (i in 1:R) {
+  if (all_games[i,"strat_1"] == "car"|all_games[i,"strat_2"] == "car"){
+    all_games[i, "least_one_car"] = 1
+  }
+  else {
+    all_games[i, "least_one_car"] = 0
+  }
+}
+prob_least_one_car <- mean(all_games[,"least_one_car"])
+print(paste0("the probability that there is at least one car in one of the strategies is: ", prob_least_one_car))
+print(paste0("since the two are mutually exclusive they should add up to 1: ",prob_least_one_car+prob_both_goat))
+```
+
+
+**A**. Communicate the precision of your simulated probability in part **B** by calculating a **99\%** confidence interval.
+
+**HINT:** Use the CLT short cut.
+
+```{r}
+clt <- prop.test(sum(all_games[,"least_one_car"]), R, conf.level = 0.99)
+lower_bound <- clt$conf.int[1]
+upper_bound <- clt$conf.int[2]
+print(paste0("The confidence interval at 99% confidence is between:  ",(round(lower_bound,5)), " and ", (round(upper_bound,5))))
+```
+
